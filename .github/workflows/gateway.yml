@@ -54,11 +54,11 @@ jobs:
           log="$RUNNER_TEMP/gateway-checks.log"
           # Private source diagnostics stay on the ephemeral runner.
           if ! (
-            test -z "$(gofmt -l cmd internal)"
-            go vet ./...
-            go test -race ./...
-            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-amd64" ./cmd/gateway
-            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-arm64" ./cmd/gateway
+            test -z "$(gofmt -l cmd internal)" &&
+            go vet ./... &&
+            go test -race ./... &&
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-amd64" ./cmd/gateway &&
+            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-arm64" ./cmd/gateway &&
             CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-windows-amd64.exe" ./cmd/gateway
           ) >"$log" 2>&1; then
             echo '::error::Gateway checks failed. Reproduce on the private checkout; source diagnostics are not published.'

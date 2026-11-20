@@ -1,0 +1,82 @@
+name: Gateway CI
+run-name: Gateway CI @ ${{ inputs.sha || github.event.client_payload.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Gateway full commit SHA'
+        type: string
+        required: true
+  repository_dispatch:
+    types: [gateway-ci]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gateway-ci
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      TARGET_SHA: ${{ inputs.sha || github.event.client_payload.sha }}
+    steps:
+      - name: Validate immutable revision
+        shell: bash
+        run: |
+          if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo '::error::A full lowercase commit SHA is required'
+            exit 1
+          fi
+      - name: Checkout private Gateway
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: 360NENZ/Gateway
+          ref: ${{ env.TARGET_SHA }}
+          token: ${{ secrets.SEC }}
+          persist-credentials: false
+          path: gateway
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: gateway/go.mod
+          cache: false
+      - name: Format, vet, race tests and builds
+        working-directory: gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/gateway-checks.log"
+          # Private source diagnostics stay on the ephemeral runner.
+          if ! (
+            test -z "$(gofmt -l cmd internal)"
+            go vet ./...
+            go test -race ./...
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-amd64" ./cmd/gateway
+            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-arm64" ./cmd/gateway
+            CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-windows-amd64.exe" ./cmd/gateway
+          ) >"$log" 2>&1; then
+            echo '::error::Gateway checks failed. Reproduce on the private checkout; source diagnostics are not published.'
+            exit 1
+          fi
+          echo 'Format, vet, race tests and Linux/Windows builds passed'
+      - name: Build container privately on runner
+        working-directory: gateway
+        shell: bash
+        run: |
+          if ! docker build --quiet -t gateway-ci . >"$RUNNER_TEMP/gateway-docker.log" 2>&1; then
+            echo '::error::Container build failed; no source diagnostics are published'
+            exit 1
+          fi
+          echo 'Container build passed'
+      - name: Clean private checkout
+        if: always()
+        shell: bash
+        run: |
+          rm -rf -- "$GITHUB_WORKSPACE/gateway"
+          rm -f -- "$RUNNER_TEMP"/gateway-*

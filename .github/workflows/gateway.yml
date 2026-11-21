@@ -73,6 +73,7 @@ jobs:
           if ! (
             test -z "$(gofmt -l cmd internal deploy/k3s)" &&
             go vet ./... &&
+            node --test scripts/test_network.mjs &&
             python3 -m unittest discover -s scripts -p test_production.py &&
             python3 -m py_compile scripts/authentik_gateway.py scripts/cloudflare_gateway.py scripts/deploy_gateway.py scripts/verify_gateway.py &&
             go test -race ./... &&

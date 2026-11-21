@@ -78,6 +78,8 @@ jobs:
             go test -race ./... &&
             CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-amd64" ./cmd/gateway &&
             CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/gateway-linux-arm64" ./cmd/gateway &&
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-agent-linux-amd64" ./cmd/gateway-agent &&
+            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/gateway-agent-linux-arm64" ./cmd/gateway-agent &&
             CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/gateway-windows-amd64.exe" ./cmd/gateway &&
             go run github.com/yannh/kubeconform/cmd/kubeconform@v0.7.0 -strict -summary deploy/k3s/namespace.yaml deploy/k3s/configmap.yaml deploy/k3s/rbac.yaml deploy/k3s/deployment.yaml deploy/k3s/service.yaml deploy/k3s/networkpolicy.yaml deploy/k3s/secret.example.yaml
           ) >"$log" 2>&1; then
